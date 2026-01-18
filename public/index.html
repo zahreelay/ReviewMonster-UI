@@ -3,25 +3,48 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Product Intelligence Console</title>
+    <title>Product Intelligence</title>
     <style>
         body {
-            font-family: Arial;
-            padding: 20px;
+            font-family: sans-serif;
+            margin: 20px;
         }
 
         button {
-            margin: 5px;
+            padding: 8px 12px;
+            margin-right: 10px;
         }
 
-        .box {
-            border: 1px solid #aaa;
-            padding: 10px;
-            margin-top: 10px;
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            padding: 12px;
+        }
+
+        h3 {
+            margin-top: 0;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            cursor: pointer;
+            margin-bottom: 6px;
+        }
+
+        li:hover {
+            text-decoration: underline;
         }
 
         pre {
-            background: #f4f4f4;
+            background: #f7f7f7;
             padding: 10px;
             overflow: auto;
         }
@@ -30,101 +53,24 @@
 
 <body>
 
-    <h1>Product Intelligence Console</h1>
+    <h1>Product Intelligence</h1>
 
-    <div>
-        <button onclick="init()">Init (Scrape 1 Year)</button>
-        <button onclick="loadYearly()">Yearly Report</button>
-        <button onclick="loadRegression()">Regression Tree</button>
-        <button onclick="loadTimeline()">Release Timeline</button>
-        <button onclick="loadImpact()">Impact Model</button>
+    <button onclick="runAnalysis()">Run Analysis</button>
+    <button onclick="generateSWOT()">Generate SWOT</button>
+
+    <div class="grid">
+        <div class="card">
+            <h3>Competitors</h3>
+            <ul id="competitors"></ul>
+        </div>
+
+        <div class="card">
+            <h3>SWOT</h3>
+            <pre id="swot">Run analysis to begin</pre>
+        </div>
     </div>
 
-    <div class="box">
-        <h3>Output</h3>
-        <pre id="output"></pre>
-    </div>
-
-    <div class="box">
-        <h3>Query Console</h3>
-        <input id="query" style="width:80%" />
-        <button onclick="runQuery()">Ask</button>
-        <pre id="answer"></pre>
-    </div>
-
-    <script>
-        const API = "http://localhost:3000";
-        const output = document.getElementById("output");
-        const answer = document.getElementById("answer");
-
-        function setLoading(isLoading) {
-            if (isLoading) {
-                output.textContent = "Loading...";
-            }
-        }
-
-        async function safeFetch(url, options = {}) {
-            try {
-                setLoading(true);
-                const res = await fetch(url, options);
-                const data = await res.json();
-                setLoading(false);
-                return data;
-            } catch (e) {
-                setLoading(false);
-                output.textContent = "Error: " + e.message;
-                throw e;
-            }
-        }
-
-        async function init() {
-            const data = await safeFetch(API + "/init", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ refresh: true })
-            });
-            output.textContent = JSON.stringify(data, null, 2);
-        }
-
-        async function loadYearly() {
-            const data = await safeFetch(API + "/yearly-report");
-            output.textContent = JSON.stringify(data, null, 2);
-        }
-
-        async function loadRegression() {
-            const data = await safeFetch(API + "/regression-tree");
-            output.textContent = JSON.stringify(data, null, 2);
-        }
-
-        async function loadTimeline() {
-            const data = await safeFetch(API + "/release-timeline");
-            output.textContent = JSON.stringify(data, null, 2);
-        }
-
-        async function loadImpact() {
-            const data = await safeFetch(API + "/impact-model");
-            output.textContent = JSON.stringify(data, null, 2);
-        }
-
-        async function runQuery() {
-            const q = document.getElementById("query").value.toLowerCase();
-            let data;
-
-            if (q.includes("fix") || q.includes("priority")) {
-                data = await safeFetch(API + "/impact-model");
-            } else if (q.includes("release") || q.includes("version")) {
-                data = await safeFetch(API + "/release-timeline");
-            } else if (q.includes("regression") || q.includes("issue")) {
-                data = await safeFetch(API + "/regression-tree");
-            } else {
-                data = await safeFetch(API + "/yearly-report");
-            }
-
-            answer.textContent = JSON.stringify(data, null, 2);
-        }
-    </script>
-
-
+    <script src="app.js"></script>
 </body>
 
 </html>
