@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-50 text-gray-900 min-h-screen;
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+/* Print styles for PDF export */
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide navigation and non-essential elements */
+  header, nav, .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Make the AI brief take full page */
+  #ai-brief {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Ensure colors print correctly */
+  .bg-gradient-to-r {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Page break handling */
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid;
+  }
+}

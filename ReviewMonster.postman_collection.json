@@ -1,0 +1,1175 @@
+{
+	"info": {
+		"_postman_id": "review-monster-api",
+		"name": "ReviewMonster API",
+		"description": "Product Intelligence Platform - App Store Review Analysis API\n\n## Phase 1A Multi-App API (Recommended)\nThe new `/api/apps/:appId/*` endpoints support analyzing any app by ID. Use these endpoints for new integrations.\n\n## Cache Behavior\nAll LLM calls read from cache by default. Pass `bypassCache: true` (POST body) or `?bypassCache=true` (GET query param) to force fresh LLM calls.\n\n## LLM Providers\nSupports multiple LLM providers: OpenAI, Anthropic (Claude), Google (Gemini). Set `LLM_PROVIDER` env var to switch.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "appId",
+			"value": "1081530898",
+			"type": "string",
+			"description": "App Store app ID (The New Yorker)"
+		},
+		{
+			"key": "issueId",
+			"value": "subscription_not_recognized",
+			"type": "string",
+			"description": "Issue ID for deep-dive (use normalized key from /issues endpoint)"
+		},
+		{
+			"key": "requestId",
+			"value": "lack_of_dark_mode",
+			"type": "string",
+			"description": "Feature request ID (use normalized key from /requests endpoint)"
+		},
+		{
+			"key": "strengthId",
+			"value": "easy_to_use",
+			"type": "string",
+			"description": "Strength ID (use normalized key from /strengths endpoint)"
+		},
+		{
+			"key": "competitorId",
+			"value": "544007664",
+			"type": "string",
+			"description": "Competitor app ID for evidence queries"
+		}
+	],
+	"item": [
+		{
+			"name": "Phase 1A - Multi-App",
+			"item": [
+				{
+					"name": "List All Apps",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps"
+							]
+						},
+						"description": "List all apps that have been analyzed including competitors.\n\nReturns:\n- `apps`: Array of analyzed apps with `isCompetitor` flag\n- `competitors`: Global competitors list from discovery\n- `summary`: Counts of main apps, analyzed competitors, pending competitors"
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize App Analysis",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refresh\": true,\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/init",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"init"
+							]
+						},
+						"description": "Initialize analysis for any app by ID. Fetches metadata, scrapes reviews, and runs LLM analysis.\n\n- `refresh`: true to fetch fresh reviews from App Store\n- `bypassCache`: true to force re-analysis even if cached\n\nReturns immediately. Poll /api/apps/:appId/init/status for progress."
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize App (Bypass Cache)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refresh\": true,\n    \"bypassCache\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/init",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"init"
+							]
+						},
+						"description": "Initialize analysis with fresh LLM calls (bypasses cache). Use when you need to re-analyze all reviews."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Init Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/init/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"init",
+								"status"
+							]
+						},
+						"description": "Check the status of async initialization. Returns progress, percentage, and result when complete."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Overview Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/overview",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"overview"
+							]
+						},
+						"description": "Get dashboard overview with:\n- App metadata\n- Quick insights (top issue, top request, top strength, rating trend)\n- Metrics (total reviews, avg rating, sentiment breakdown)\n- Rating history by month\n- AI-generated memo with recommendations"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Issues",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/issues",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"issues"
+							]
+						},
+						"description": "Get all issues from complaint reviews with:\n- `impactScore` (0-100) - composite score based on frequency, rating, recency, trend\n- `impactFactors` - breakdown of score components\n- `severity` (critical/high/medium/low) - derived from impactScore\n- `trend` (increasing/stable/decreasing/new)\n- Count of reports, average rating\n- First/last seen dates, affected versions\n- Evidence (sample reviews)\n\nAdd `?includeEvidence=false` to exclude sample reviews."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Issue Deep-Dive",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/issues/{{issueId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"issues",
+								"{{issueId}}"
+							]
+						},
+						"description": "Deep-dive into a specific issue. Set the `issueId` variable or get IDs from the /issues endpoint.\n\nReturns:\n- Issue details (title, severity, count)\n- Impact analysis (rating drop, affected %, trend)\n- Timeline by month\n- Recommendations\n- Evidence (sample reviews)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Feature Requests",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/requests",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"requests"
+							]
+						},
+						"description": "Get all feature requests with:\n- `demandScore` (0-100) - composite score based on frequency, recency, consistency\n- `demandFactors` - breakdown of score components\n- `demand` (high/medium/low) - derived from demandScore\n- Count of requests, first requested date\n- Evidence (up to 10 sample reviews)\n\nAdd `?includeEvidence=false` to exclude sample reviews."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Strengths",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/strengths",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"strengths"
+							]
+						},
+						"description": "Get all strengths from praise reviews with:\n- Count of mentions\n- Evidence (sample reviews)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Regression Timeline (Version)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/regression-timeline?view=version",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"regression-timeline"
+							],
+							"query": [
+								{
+									"key": "view",
+									"value": "version"
+								}
+							]
+						},
+						"description": "Get version-wise issue tracking with rating correlation. Shows which issues appeared/resolved in each version."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Regression Timeline (Monthly)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/regression-timeline?view=monthly",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"regression-timeline"
+							],
+							"query": [
+								{
+									"key": "view",
+									"value": "monthly"
+								}
+							]
+						},
+						"description": "Get monthly issue timeline with rating trends."
+					},
+					"response": []
+				},
+				{
+					"name": "Natural Language Query",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"What are the main complaints about subscriptions?\",\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/query",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"query"
+							]
+						},
+						"description": "Ask natural language questions about the app's reviews. AI-powered answers based on analyzed data.\n\n- `query`: Your question\n- `bypassCache`: true for fresh LLM response\n\nResponse includes:\n- `answer`: AI-generated response\n- `cached`: true if response was from cache\n- `context`: App name, review count, avg rating"
+					},
+					"response": []
+				},
+				{
+					"name": "Query - Why Rating Dropped",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"Why did the rating drop recently?\",\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/query",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"query"
+							]
+						},
+						"description": "Example query: Ask about rating drops."
+					},
+					"response": []
+				},
+				{
+					"name": "Query - Top Feature Requests",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"What features are users requesting the most?\",\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/query",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"query"
+							]
+						},
+						"description": "Example query: Ask about feature requests."
+					},
+					"response": []
+				},
+				{
+					"name": "Query - Login Issues",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"Are there any login or authentication issues?\",\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/apps/{{appId}}/query",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"apps",
+								"{{appId}}",
+								"query"
+							]
+						},
+						"description": "Example query: Ask about specific issues."
+					},
+					"response": []
+				}
+			],
+			"description": "Phase 1A Multi-App endpoints - analyze any app by ID. These are the recommended endpoints for new integrations."
+		},
+		{
+			"name": "System",
+			"item": [
+				{
+					"name": "Get LLM Provider Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/llm/info",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"llm",
+								"info"
+							]
+						},
+						"description": "Get information about the current LLM provider and all available providers. Shows which provider is default, which are configured (have API keys), and available models."
+					},
+					"response": []
+				}
+			],
+			"description": "System information and configuration endpoints"
+		},
+		{
+			"name": "Legacy - Onboarding",
+			"item": [
+				{
+					"name": "Fetch App Metadata",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"appId\": \"{{appId}}\",\n    \"country\": \"us\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/apps/metadata",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"apps",
+								"metadata"
+							]
+						},
+						"description": "Fetch app metadata from App Store using iTunes API. Returns app name, icon, rating, description, etc."
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize Reviews (Async)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refresh\": true,\n    \"async\": true,\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/init",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"init"
+							]
+						},
+						"description": "Download and analyze reviews from App Store. Runs asynchronously by default.\n\n- `refresh`: true to fetch new reviews from App Store\n- `async`: true for background processing (recommended)\n- `bypassCache`: true to force re-analysis even if cached\n\nPoll /init/status for progress."
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize Reviews (Sync)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refresh\": false,\n    \"async\": false,\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/init",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"init"
+							]
+						},
+						"description": "Synchronous init - waits for completion. Only use with async=false and refresh=false (cached data only). May timeout with refresh=true.\n\n- `bypassCache`: true to force re-analysis even if cached"
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize Reviews (Bypass Cache)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refresh\": false,\n    \"async\": true,\n    \"bypassCache\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/init",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"init"
+							]
+						},
+						"description": "Force re-analysis of all reviews by bypassing cache. Use when you need fresh LLM analysis."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Init Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/init/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"init",
+								"status"
+							]
+						},
+						"description": "Check the status of async initialization. Returns progress, percentage, and result when complete."
+					},
+					"response": []
+				}
+			],
+			"description": "Legacy single-app endpoints. Use Phase 1A Multi-App endpoints for new integrations."
+		},
+		{
+			"name": "Legacy - Core Analysis",
+			"item": [
+				{
+					"name": "Get Overview Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/overview",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"overview"
+							]
+						},
+						"description": "Get executive summary with metrics, top issues, feature requests, alerts, and AI-generated memo."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Your Product Deep Dive",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/your-product",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"your-product"
+							]
+						},
+						"description": "Deep dive into issues (with severity), feature requests (with demand), and strengths with evidence."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Yearly Report",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/yearly-report",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"yearly-report"
+							]
+						},
+						"description": "Generate yearly analysis report with memo. Uses cached analysis by default."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Yearly Report (Bypass Cache)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/yearly-report?bypassCache=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"yearly-report"
+							],
+							"query": [
+								{
+									"key": "bypassCache",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Generate yearly analysis report with fresh LLM analysis (bypasses cache)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Regression Tree",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/regression-tree",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"regression-tree"
+							]
+						},
+						"description": "Rating driver regression analysis - identifies issues causing rating drops. Uses cached analysis by default."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Regression Tree (Bypass Cache)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/regression-tree?bypassCache=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"regression-tree"
+							],
+							"query": [
+								{
+									"key": "bypassCache",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Rating driver regression analysis with fresh LLM analysis (bypasses cache)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Release Timeline",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/release-timeline",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"release-timeline"
+							]
+						},
+						"description": "Version-by-version sentiment analysis with new/resolved issues per release. Uses cached analysis by default."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Release Timeline (Bypass Cache)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/release-timeline?bypassCache=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"release-timeline"
+							],
+							"query": [
+								{
+									"key": "bypassCache",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Version-by-version sentiment analysis with fresh LLM analysis (bypasses cache)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Impact Model",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/impact-model",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"impact-model"
+							]
+						},
+						"description": "Predictive impact analysis with priority scores and fix recommendations. Uses cached analysis by default."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Impact Model (Bypass Cache)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/impact-model?bypassCache=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"impact-model"
+							],
+							"query": [
+								{
+									"key": "bypassCache",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Predictive impact analysis with fresh LLM analysis (bypasses cache)."
+					},
+					"response": []
+				},
+				{
+					"name": "Run Analysis Agent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"days\": 30,\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/run-agent",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"run-agent"
+							]
+						},
+						"description": "Run the analysis agent for specified number of days.\n\n- `days`: Number of days to analyze\n- `bypassCache`: true to force fresh LLM analysis"
+					},
+					"response": []
+				},
+				{
+					"name": "Run Analysis Agent (Bypass Cache)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"days\": 30,\n    \"bypassCache\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/run-agent",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"run-agent"
+							]
+						},
+						"description": "Run the analysis agent with fresh LLM analysis (bypasses cache)."
+					},
+					"response": []
+				}
+			],
+			"description": "Legacy core analysis endpoints"
+		},
+		{
+			"name": "Legacy - Evidence & Queries",
+			"item": [
+				{
+					"name": "Get Evidence - Issue",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/evidence/issue/{{issueId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"evidence",
+								"issue",
+								"{{issueId}}"
+							]
+						},
+						"description": "Get review evidence for a specific issue. Set the `issueId` variable or replace with issue identifier."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Evidence - Feature Request",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/evidence/request/{{requestId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"evidence",
+								"request",
+								"{{requestId}}"
+							]
+						},
+						"description": "Get review evidence for a feature request. Set the `requestId` variable or replace with request identifier."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Evidence - Strength",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/evidence/strength/{{strengthId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"evidence",
+								"strength",
+								"{{strengthId}}"
+							]
+						},
+						"description": "Get review evidence for a strength/praise. Set the `strengthId` variable or replace with strength identifier."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Evidence - Competitor Weakness",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/evidence/weakness/{{issueId}}?competitorId={{competitorId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"evidence",
+								"weakness",
+								"{{issueId}}"
+							],
+							"query": [
+								{
+									"key": "competitorId",
+									"value": "{{competitorId}}"
+								}
+							]
+						},
+						"description": "Get competitor review evidence for a weakness. Uses `issueId` and `competitorId` variables."
+					},
+					"response": []
+				},
+				{
+					"name": "Natural Language Query",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"What are the top complaints from users?\",\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/query",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"query"
+							]
+						},
+						"description": "Ask natural language questions about review data. AI-powered answers.\n\n- `query`: Your question\n- `bypassCache`: true to force fresh LLM response (default: false, uses cached response if available)"
+					},
+					"response": []
+				},
+				{
+					"name": "Natural Language Query (Bypass Cache)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"What are the top complaints from users?\",\n    \"bypassCache\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/query",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"query"
+							]
+						},
+						"description": "Natural language query with fresh LLM response (bypasses cache)."
+					},
+					"response": []
+				},
+				{
+					"name": "Query - Why Rating Dropped",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"Why did our rating drop recently?\",\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/query",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"query"
+							]
+						},
+						"description": "Example query: Ask about rating drops."
+					},
+					"response": []
+				},
+				{
+					"name": "Query - Feature Requests",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"What features are users requesting the most?\",\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/query",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"query"
+							]
+						},
+						"description": "Example query: Ask about feature requests."
+					},
+					"response": []
+				}
+			],
+			"description": "Legacy endpoints for evidence and queries"
+		},
+		{
+			"name": "Competitors",
+			"item": [
+				{
+					"name": "Discover Competitors",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ourAppId\": \"{{appId}}\",\n    \"country\": \"us\",\n    \"k\": 10\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/competitors/init",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"competitors",
+								"init"
+							]
+						},
+						"description": "Discover top competitors based on app genre and keywords. Returns up to k competitors."
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch Competitor Reviews",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"mainApp\": {\n        \"appId\": \"{{appId}}\",\n        \"name\": \"Your App\"\n    },\n    \"competitorIds\": [\"{{competitorId}}\"],\n    \"days\": 90,\n    \"bypassCache\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/competitors/run",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"competitors",
+								"run"
+							]
+						},
+						"description": "Fetch and analyze reviews for specified competitors. Creates competitive dataset.\n\n- `competitorIds`: Array of App Store app IDs\n- `days`: Number of days of reviews to fetch\n- `bypassCache`: true to force fresh LLM analysis (default: false)"
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch Competitor Reviews (Bypass Cache)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"mainApp\": {\n        \"appId\": \"{{appId}}\",\n        \"name\": \"Your App\"\n    },\n    \"competitorIds\": [\"{{competitorId}}\"],\n    \"days\": 90,\n    \"bypassCache\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/competitors/run",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"competitors",
+								"run"
+							]
+						},
+						"description": "Fetch and analyze competitor reviews with fresh LLM analysis (bypasses cache)."
+					},
+					"response": []
+				},
+				{
+					"name": "Generate SWOT Comparison",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"mainApp\": {\n        \"appId\": \"{{appId}}\"\n    },\n    \"competitorIds\": [\"{{competitorId}}\"],\n    \"days\": 90\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/competitors/compare",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"competitors",
+								"compare"
+							]
+						},
+						"description": "Generate SWOT analysis comparing your app to competitors. Requires /competitors/run first.\n\n- `competitorIds`: Array of competitor App Store IDs\n- `days`: Number of days of reviews to analyze"
+					},
+					"response": []
+				}
+			],
+			"description": "Competitor discovery and analysis endpoints"
+		}
+	]
+}
